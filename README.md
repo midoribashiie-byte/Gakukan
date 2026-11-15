@@ -1,2 +1,0 @@
-# Gakukan
-Gaku
