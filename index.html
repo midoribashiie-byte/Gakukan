@@ -57,7 +57,7 @@ import {initializeApp} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-
 import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 import {getFirestore,collection,doc,getDoc,getDocs,setDoc,updateDoc,serverTimestamp} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 const firebaseConfig={apiKey:"AIzaSyBG2tJ_hbxGippHchKfpJIF1CkbG1K32aw",authDomain:"kanri-apr.firebaseapp.com",projectId:"kanri-apr",storageBucket:"kanri-apr.firebasestorage.app",messagingSenderId:"593448714525",appId:"1:593448714525:web:d14c897d4696aeb121a1f4"};
-const TEACHER_UID="iFjV51XhM8fqZ1njii3TSkxTOyi2";
+const TEACHER_UID="HsxxFZpIFmXzQP5a9AZKkoQJDUS2";
 const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
 const $=id=>document.getElementById(id);
 let currentUser=null,selectedStudent=null,studentProfile=null,tasks=[];
