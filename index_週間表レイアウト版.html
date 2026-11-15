@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>学習管理アプリ</title>
+<style>
+:root{font-family:system-ui,"Noto Sans JP",sans-serif;color:#182235;background:#f3f6fb}
+*{box-sizing:border-box}body{margin:0}header{background:#172b4d;color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:center}
+h1{font-size:20px;margin:0}main{max-width:1200px;margin:auto;padding:12px}.panel{background:#fff;border-radius:13px;padding:14px;margin:12px 0;box-shadow:0 2px 8px #0001}
+button,input,select,textarea{font:inherit;padding:8px;border:1px solid #cbd5e1;border-radius:8px}button{background:#2457d6;color:#fff;border:0;font-weight:650;cursor:pointer;margin:3px}button.secondary{background:#e8eef8;color:#1e3a65}button.danger{background:#b42318}
+label{display:block;font-size:13px}input,select,textarea{max-width:100%;margin:4px 0 10px}input[type=date],input[type=email],input[type=password]{width:100%}
+.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.row>*{flex:1}.muted{color:#64748b;font-size:12px}.hidden{display:none!important}.notice{background:#fff6dc;padding:10px;border-radius:8px;font-size:13px}
+.student{border:1px solid #dbe3ef;border-radius:10px;padding:10px;margin:8px 0;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.weekbar{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.weekbar label{min-width:150px}
+.schedule-wrap{overflow-x:auto}.schedule{min-width:850px;display:grid;grid-template-columns:72px repeat(7,minmax(100px,1fr));border:1px solid #d9e1ec;border-radius:10px;overflow:hidden}
+.dayhead{background:#172b4d;color:white;text-align:center;font-weight:bold;padding:10px 2px;border-right:1px solid #fff}
+.timehead{background:#edf1f7;padding:8px 3px;text-align:center;font-size:11px;font-weight:bold}
+.daycol{position:relative;height:640px;background:repeating-linear-gradient(to bottom,#fff 0,#fff 31px,#e7ecf3 32px);border-left:1px solid #e1e7ef}
+.timecol{position:relative;height:640px;background:#f8fafc}
+.tick{height:32px;border-bottom:1px solid #e5eaf1;font-size:10px;color:#65748b;text-align:center;padding-top:1px}
+.periodtag{position:absolute;left:2px;right:2px;border:1px solid #d6deea;border-radius:6px;background:#f0f3f8;text-align:center;font-size:10px;padding:3px 0;color:#43516a}
+.breakline{position:absolute;left:0;right:0;height:5px;background:#f5c451;border-top:1px dashed #bd8b1b;z-index:3;pointer-events:none}
+.block{position:absolute;left:3px;right:3px;border-radius:7px;padding:4px 5px;font-size:10px;line-height:1.25;overflow:hidden;border:1px solid #0001;z-index:2}
+.block strong{display:block;font-size:11px}.math{background:#dce9ff;border-left:5px solid #2457d6}.japanese{background:#ffe0e1;border-left:5px solid #bd2732}.science{background:#dcf7e6;border-left:5px solid #16834a}.calc{background:#efddff;border-left:5px solid #7b2bc5}
+.block.lesson.math{background:#2457d6;color:#fff}.block.lesson.japanese{background:#b91f2b;color:#fff}.block.lesson.science{background:#08763d;color:#fff}.block.lesson.calc{background:#6f20b8;color:#fff}
+.block.done{opacity:.55;text-decoration:line-through}.block button{font-size:10px;padding:2px 4px;margin:2px 0 0;background:#ffffffd9;color:#172b4d}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px}.swatch{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:middle}
+.formgrid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:8px}.formgrid label{min-width:0}.formgrid input,.formgrid select{width:100%}
+.progressline{height:9px;background:#e8edf5;border-radius:20px;overflow:hidden;flex:1}.progressline span{display:block;height:100%;background:#19a36b}
+@media(max-width:600px){main{padding:6px}.panel{padding:10px}.formgrid{grid-template-columns:repeat(2,minmax(0,1fr))}h1{font-size:17px}}
+</style></head><body>
+<header><h1>📚 週間学習スケジュール</h1><button id="logout" class="secondary hidden">ログアウト</button></header>
+<main>
+<section id="login" class="panel"><h2>ログイン</h2><label>メールアドレス<input id="email" type="email" autocomplete="username"></label><label>パスワード<input id="password" type="password" autocomplete="current-password"></label><button id="loginBtn">ログイン</button><p id="msg" class="muted"></p></section>
+<section id="teacher" class="hidden">
+<div class="panel"><h2>先生用メニュー</h2><p class="muted">生徒を登録し、週間予定を編集します。</p><div class="row"><label>生徒名<input id="newName" placeholder="生徒名"></label><label>生徒のログインUID<input id="newUid" placeholder="Firebase AuthenticationのUID"></label><button id="addStudent">生徒を登録</button></div><div id="teacherMsg" class="muted"></div></div>
+<div class="panel"><h3>生徒一覧</h3><div id="students"></div></div>
+<div id="editor" class="panel hidden">
+<div class="weekbar"><h2 id="editTitle">週間スケジュール</h2><label>対象週<input id="week" type="date"></label><button id="seedWeek" class="secondary">基本予定を入れる</button></div>
+<h3>予定の追加・変更</h3>
+<div class="formgrid">
+<label>曜日<select id="day"><option value="0">月曜日</option><option value="1">火曜日</option><option value="2">水曜日</option><option value="3">木曜日</option><option value="4">金曜日</option><option value="5">土曜日</option><option value="6">日曜日</option></select></label>
+<label>教科<select id="subject"><option>算数</option><option>国語</option><option>理科</option><option>計算</option></select></label>
+<label>種別<select id="kind"><option>宿題</option><option>授業</option><option>授業の直し</option><option>暗記</option><option>練習</option></select></label>
+<label>開始時刻<input id="start" type="time" value="17:00" step="900"></label>
+<label>学習時間<select id="duration"><option>15</option><option>30</option><option>45</option><option>60</option><option>90</option><option>120</option></select></label>
+<label style="grid-column:span 2">学習内容<input id="content" placeholder="例：漢字・語句、テキスト演習"></label>
+</div>
+<button id="addTask">予定を追加</button><button id="cancelEdit" class="secondary hidden">編集をキャンセル</button>
+<p class="muted">予定を変更するときは、週間表の予定にある「編集」を押してください。授業・宿題・直し・暗記などを入力できます。</p>
+<div class="legend"><span><i class="swatch" style="background:#2457d6"></i>算数</span><span><i class="swatch" style="background:#bd2732"></i>国語</span><span><i class="swatch" style="background:#16834a"></i>理科</span><span><i class="swatch" style="background:#7b2bc5"></i>計算</span><span>濃い色＝授業／薄い色＝家庭学習</span><span><i class="swatch" style="background:#f5c451"></i>5分休憩</span></div>
+</div>
+</section>
+<section id="student" class="hidden">
+<div class="panel"><h2 id="studentTitle">今週の学習予定</h2><label>週を選択<input id="studentWeek" type="date"></label><p class="muted">終わった予定をタップしてチェックしてください。</p></div>
+</section>
+<section id="schedulePanel" class="panel hidden">
+<div class="row"><h2 id="scheduleHeading">週間学習スケジュール</h2><div id="dayProgress" class="muted"></div></div>
+<div class="schedule-wrap"><div id="schedule" class="schedule"></div></div>
+<div id="studentComment" class="panel"><h3>先生からのコメント</h3><div id="commentText"></div></div>
+</section>
+<section id="teacherFeedback" class="panel hidden"><h3>先生からの確認</h3><label>コメント<textarea id="comment" rows="2" placeholder="頑張ったところ・次回へのアドバイス"></textarea></label><label>スタンプ<select id="stamp"><option value="">なし</option><option>🌟</option><option>💮</option><option>👏</option><option>😊</option><option>🔥</option><option>🎉</option></select></label><button id="saveWeek">この週の内容を保存</button><span id="saveMsg" class="muted"></span></section>
+</main>
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+import{getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut}from"https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+import{getFirestore,collection,doc,getDoc,getDocs,setDoc,updateDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+const firebaseConfig={apiKey:"AIzaSyBG2tJ_hbxGippHchKfpJIF1CkbG1K32aw",authDomain:"kanri-apr.firebaseapp.com",projectId:"kanri-apr",storageBucket:"kanri-apr.firebasestorage.app",messagingSenderId:"593448714525",appId:"1:593448714525:web:d14c897d4696aeb121a1f4"};
+const TEACHER_UID="HsxxFZpIFmXzQP5a9AZKkoQJDUS2";
+const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app),$=id=>document.getElementById(id);
+let currentUser=null,selectedStudent=null,studentProfile=null,tasks=[],progress={},editingId=null,role="student",weekData={};
+const days=["月","火","水","木","金","土","日"],subjects=["算数","国語","理科","計算"];
+const mondayOf=v=>{let d=new Date((v||new Date().toISOString().slice(0,10))+"T12:00:00");d.setDate(d.getDate()-(d.getDay()+6)%7);return d.toISOString().slice(0,10)};
+const wk=()=>mondayOf(role==="teacher"?$("week").value:$("studentWeek").value);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const mins=t=>{let [h,m]=t.split(":").map(Number);return h*60+m},fmt=n=>String(Math.floor(n/60)).padStart(2,"0")+":"+String(n%60).padStart(2,"0");
+const subjClass=s=>({"算数":"math","国語":"japanese","理科":"science","計算":"calc"}[s]||"math");
+const defaultRows=[
+[0,"17:00",90,"算数","授業","算数授業"],[0,"18:35",90,"理科","授業","理科授業"],[0,"20:10",15,"国語","練習","漢字・語句"],[0,"20:25",15,"計算","練習","計算練習"],[0,"20:40",30,"算数","授業の直し","算数授業の直し"],[0,"21:10",30,"理科","授業の直し","理科授業の直し"],
+[1,"17:00",60,"算数","宿題","算数宿題"],[1,"18:00",30,"理科","宿題","理科宿題"],[1,"18:35",15,"国語","練習","漢字・語句"],[1,"18:50",60,"国語","宿題","国語宿題"],[1,"19:50",15,"理科","暗記","理科暗記"],[1,"20:10",90,"計算","授業","計算授業"],
+[2,"17:00",60,"算数","宿題","算数宿題"],[2,"18:00",30,"計算","授業の直し","計算授業の直し"],[2,"18:35",15,"国語","練習","漢字・語句"],[2,"18:50",15,"計算","練習","計算練習"],[2,"19:05",15,"理科","暗記","理科暗記"],
+[3,"17:00",15,"国語","練習","漢字・語句"],[3,"17:15",15,"計算","練習","計算練習"],[3,"17:30",15,"理科","暗記","理科暗記"],[3,"18:00",45,"算数","宿題","算数宿題"],[3,"18:50",60,"国語","宿題","国語宿題"],[3,"19:50",15,"理科","宿題","理科宿題"],
+[4,"17:00",15,"国語","練習","漢字・語句"],[4,"17:15",15,"計算","練習","計算練習"],[4,"17:30",15,"理科","暗記","理科暗記"],[4,"18:00",45,"算数","宿題","算数宿題"],[4,"18:50",30,"理科","宿題","理科宿題"],[4,"19:20",45,"国語","宿題","国語宿題"],
+[5,"17:00",90,"国語","授業","国語授業"],[5,"18:35",45,"国語","授業の直し","国語授業の直し"],[5,"19:20",45,"算数","宿題","算数宿題"],[5,"20:10",15,"計算","練習","計算練習"],
+[6,"17:00",45,"算数","宿題","算数宿題"],[6,"17:45",45,"国語","宿題","国語宿題"],[6,"18:35",45,"理科","授業の直し","理科授業の直し"],[6,"19:20",45,"算数","宿題","算数宿題"],[6,"20:10",45,"理科","宿題","理科宿題"]
+];
+const makeDefault=()=>defaultRows.map((r,i)=>({id:"base"+i,day:r[0],start:r[1],duration:r[2],subject:r[3],kind:r[4],content:r[5]}));
+function show(id){["login","teacher","student"].forEach(x=>$(x).classList.toggle("hidden",x!==id));$("logout").classList.toggle("hidden",id==="login");}
+function currentStudentId(){return role==="teacher"?selectedStudent:studentProfile?.studentId}
+async function loadWeek(){
+ const sid=currentStudentId();if(!sid)return;
+ const ref=doc(db,"students",sid,"weeks",wk()),snap=await getDoc(ref);
+ if(snap.exists()){weekData=snap.data();tasks=weekData.tasks||[];progress=weekData.progress||{}}
+ else if(role==="teacher"){tasks=makeDefault();progress={};weekData={comment:"",stamp:""};await setDoc(ref,{tasks,progress,comment:"",stamp:"",updatedAt:serverTimestamp()})}
+ else{tasks=[];progress={};weekData={};}
+ if(role==="teacher"){$("comment").value=weekData.comment||"";$("stamp").value=weekData.stamp||""}
+ renderSchedule();
+}
+async function loadStudents(){let snap=await getDocs(collection(db,"students"));$("students").innerHTML="";snap.forEach(s=>{let d=s.data(),el=document.createElement("div");el.className="student";el.innerHTML=`<b>${esc(d.name)}</b><span class="muted">UID: ${esc(s.id)}</span><button>週間予定を編集</button>`;el.querySelector("button").onclick=async()=>{selectedStudent=s.id;role="teacher";$("editor").classList.remove("hidden");$("schedulePanel").classList.remove("hidden");$("teacherFeedback").classList.remove("hidden");$("editTitle").textContent=d.name+" さんの週間スケジュール";$("week").value=mondayOf();await loadWeek();$("editor").scrollIntoView({behavior:"smooth"})};$("students").append(el)})}
+$("loginBtn").onclick=async()=>{try{$("msg").textContent="ログイン中…";await signInWithEmailAndPassword(auth,$("email").value.trim(),$("password").value)}catch(e){$("msg").textContent="ログインできません："+e.message}};
+$("logout").onclick=()=>signOut(auth);
+onAuthStateChanged(auth,async user=>{currentUser=user;if(!user){show("login");$("editor").classList.add("hidden");$("schedulePanel").classList.add("hidden");$("teacherFeedback").classList.add("hidden");return}
+ if(user.uid===TEACHER_UID){role="teacher";show("teacher");$("week").value=mondayOf();await loadStudents()}
+ else{try{let u=await getDoc(doc(db,"users",user.uid));if(!u.exists()||!u.data().studentId){show("login");$("msg").textContent="先生による生徒登録がまだ完了していません。UID："+user.uid;return}studentProfile=u.data();role="student";show("student");$("studentWeek").value=mondayOf();$("schedulePanel").classList.remove("hidden");$("teacherFeedback").classList.add("hidden");await loadWeek();let st=await getDoc(doc(db,"students",studentProfile.studentId));$("studentTitle").textContent=(st.exists()?st.data().name:"")+" さんの学習予定"}catch(e){show("login");$("msg").textContent="読み込みエラー："+e.message}}});
+function renderSchedule(){
+ const root=$("schedule");root.innerHTML="";
+ const time=document.createElement("div");time.className="timecol";time.innerHTML='<div class="timehead">時間</div>';
+ for(let i=0;i<20;i++){let t=document.createElement("div");t.className="tick";t.textContent=fmt(1020+i*15);time.append(t)}
+ [["Aコマ",1020,1110],["Bコマ",1115,1205],["Cコマ",1210,1300]].forEach(([n,a,b])=>{let p=document.createElement("div");p.className="periodtag";p.style.top=(38+(a-1020)/15*32)+"px";p.style.height=((b-a)/15*32-2)+"px";p.textContent=n;time.append(p)});
+ root.append(time);
+ days.forEach((d,di)=>{let col=document.createElement("div");col.innerHTML=`<div class="dayhead">${d}曜日</div>`;let body=document.createElement("div");body.className="daycol";
+ if(di===0||di===1||di===2||di===3||di===4||di===5||di===6){}
+ [["18:30","18:35"],["20:05","20:10"]].forEach(([a,b])=>{let br=document.createElement("div");br.className="breakline";br.style.top=( (mins(a)-1020)/15*32+38)+"px";br.title="5分休憩";body.append(br)});
+ tasks.filter(t=>Number(t.day)===di).forEach(t=>{let top=(mins(t.start)-1020)/15*32+38,h=(Number(t.duration)||15)/15*32-2;let block=document.createElement("div");block.className=`block ${subjClass(t.subject)} ${t.kind==="授業"?"lesson":""} ${progress[t.id]?"done":""}`;block.style.top=top+"px";block.style.height=Math.max(24,h)+"px";
+ let content=`<strong>${esc(t.subject||"学習")} ${esc(t.kind||"")}</strong>${esc(t.content||"")}<br>${esc(t.start)}〜${fmt(mins(t.start)+Number(t.duration||15))}・${Number(t.duration)||15}分`;
+ if(role==="student")content=`<label style="display:flex;gap:4px;align-items:flex-start"><input type="checkbox" data-check="${esc(t.id)}" ${progress[t.id]?"checked":""} style="width:auto;margin:1px 0">${content}</label>`;
+ else content+=`<button data-edit="${esc(t.id)}">編集</button><button data-del="${esc(t.id)}">削除</button>`;
+ block.innerHTML=content;body.append(block)});
+ col.append(body);root.append(col)});
+ $("scheduleHeading").textContent=(role==="teacher"?"先生用・週間スケジュール":"生徒用・週間スケジュール")+"（"+wk()+" の週）";
+ $("dayProgress").textContent=`達成 ${Object.values(progress).filter(Boolean).length} 件 / ${tasks.length} 件`;
+ $("commentText").innerHTML=`<div style="font-size:24px">${esc(weekData.stamp||"")}</div>${esc(weekData.comment||"先生からのコメントはまだありません。")}`;
+ root.querySelectorAll("[data-check]").forEach(c=>c.onchange=async()=>{let p={...progress,[c.dataset.check]:c.checked};try{await updateDoc(doc(db,"students",studentProfile.studentId,"weeks",wk()),{progress:p});progress=p;renderSchedule()}catch(e){alert("チェックを保存できません："+e.message);c.checked=!c.checked}});
+ root.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>editTask(b.dataset.edit));
+ root.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{if(confirm("この予定を削除しますか？")){tasks=tasks.filter(t=>t.id!==b.dataset.del);renderSchedule()}});
+}
+function resetForm(){editingId=null;$("addTask").textContent="予定を追加";$("cancelEdit").classList.add("hidden");$("content").value="";$("start").value="17:00";$("duration").value="15"}
+function editTask(id){let t=tasks.find(x=>x.id===id);if(!t)return;editingId=id;$("day").value=String(t.day);$("subject").value=t.subject||"算数";$("kind").value=t.kind||"宿題";$("start").value=t.start;$("duration").value=String(t.duration);$("content").value=t.content||"";$("addTask").textContent="変更を反映";$("cancelEdit").classList.remove("hidden");$("editor").scrollIntoView({behavior:"smooth"})}
+$("addTask").onclick=()=>{let content=$("content").value.trim();if(!content){alert("学習内容を入力してください");return}let t={id:editingId||"t"+Date.now(),day:Number($("day").value),subject:$("subject").value,kind:$("kind").value,start:$("start").value,duration:Number($("duration").value),content};if(editingId){let i=tasks.findIndex(x=>x.id===editingId);tasks[i]=t}else tasks.push(t);tasks.sort((a,b)=>a.day-b.day||a.start.localeCompare(b.start));resetForm();renderSchedule()};
+$("cancelEdit").onclick=resetForm;
+$("seedWeek").onclick=()=>{if(!confirm("この週の予定をPDFの基本スケジュールに置き換えます。よろしいですか？"))return;tasks=makeDefault();progress={};renderSchedule()};
+$("saveWeek").onclick=async()=>{try{await setDoc(doc(db,"students",selectedStudent,"weeks",wk()),{tasks,progress,comment:$("comment").value,stamp:$("stamp").value,updatedAt:serverTimestamp()},{merge:true});weekData.comment=$("comment").value;weekData.stamp=$("stamp").value;$("saveMsg").textContent="保存しました。";renderSchedule()}catch(e){$("saveMsg").textContent="保存エラー："+e.message}};
+$("week").onchange=loadWeek;$("studentWeek").onchange=loadWeek;
+$("addStudent").onclick=async()=>{let name=$("newName").value.trim(),uid=$("newUid").value.trim();if(!name||!uid){$("teacherMsg").textContent="生徒名とUIDを入力してください。";return}try{await setDoc(doc(db,"students",uid),{name,createdAt:serverTimestamp()},{merge:true});await setDoc(doc(db,"users",uid),{studentId:uid,role:"student"});$("teacherMsg").textContent="生徒を登録しました。";$("newName").value="";$("newUid").value="";await loadStudents()}catch(e){$("teacherMsg").textContent="登録エラー："+e.message}};
+</script></body></html>
